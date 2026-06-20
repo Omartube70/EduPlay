@@ -1,5 +1,6 @@
 ﻿using Application.Interfaces.Services;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.StaticFiles;
 
 namespace Infrastructure.Services
 {
@@ -34,7 +35,7 @@ namespace Infrastructure.Services
             if (!File.Exists(filePath))
                 throw new FileNotFoundException($"File not found: {filePath}");
 
-            var provider = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider();
+            var provider = new FileExtensionContentTypeProvider();
             provider.TryGetContentType(filePath, out var contentType);
 
             var bytes = await File.ReadAllBytesAsync(filePath);

@@ -1,10 +1,10 @@
-﻿using Application.Interfaces.Services;
+﻿using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+using Application.Interfaces.Services;
 using Domain.Entities;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
 
 namespace Infrastructure.Security
 {
@@ -17,9 +17,12 @@ namespace Infrastructure.Security
 
         public JwtService(IConfiguration configuration)
         {
-            _key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configuration["Jwt:Key"]!));
-            _issuer = configuration["Jwt:Issuer"]!;
-            _audience = configuration["Jwt:Audience"]!;
+            var keyValue = configuration["Jwt:Key"]
+                ?? throw new InvalidOperationException("Jwt:Key is not configured.");
+
+            _key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(keyValue));
+            _issuer = configuration["Jwt:Issuer"] ?? throw new InvalidOperationException("Jwt:Issuer is not configured.");
+            _audience = configuration["Jwt:Audience"] ?? throw new InvalidOperationException("Jwt:Audience is not configured.");
             _accessTokenMinutes = double.Parse(configuration["Jwt:AccessTokenDurationInMinutes"] ?? "60");
         }
 

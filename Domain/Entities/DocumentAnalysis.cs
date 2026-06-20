@@ -16,7 +16,7 @@ namespace Domain.Entities
         public int DocumentId { get; private set; }
 
         // Navigation Properties
-        public Document Document { get; private set; }
+        public Document Document { get; private set; } = null!;
 
 #pragma warning disable CS8618
         private DocumentAnalysis() { }

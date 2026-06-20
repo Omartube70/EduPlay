@@ -1,7 +1,6 @@
-﻿using Application.Interfaces.Services;
+﻿using System.Text;
+using Application.Interfaces.Services;
 using DocumentFormat.OpenXml.Packaging;
-using DocumentFormat.OpenXml.Wordprocessing;
-using System.Text;
 using UglyToad.PdfPig;
 
 namespace Infrastructure.Services

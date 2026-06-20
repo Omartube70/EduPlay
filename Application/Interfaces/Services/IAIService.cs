@@ -1,10 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace Application.Interfaces.Services
+﻿namespace Application.Interfaces.Services
 {
     public interface IAIService
     {
+        Task<(string Summary, string ResponseJson)> SummarizeAsync(string extractedText, CancellationToken cancellationToken = default);
     }
 }

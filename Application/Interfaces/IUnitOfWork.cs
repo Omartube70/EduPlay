@@ -1,10 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace Application.Interfaces
+﻿namespace Application.Interfaces
 {
-    public class IUnitOfWork
+    public interface IUnitOfWork
     {
+        Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
     }
 }

@@ -16,7 +16,7 @@ namespace Domain.Entities
         public int UserId { get; private set; }
 
         // Navigation Properties
-        public User User { get; private set; }
+        public User User { get; private set; } = null!;
         public DocumentAnalysis? DocumentAnalysis { get; private set; }
 
 #pragma warning disable CS8618

@@ -1,10 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using Domain.Entities;
 
 namespace Application.Interfaces.Repositories
 {
-    public class IDocumentAnalysisRepository
+    public interface IDocumentAnalysisRepository
     {
+        Task<DocumentAnalysis?> GetByDocumentIdAsync(int documentId);
+        Task AddAsync(DocumentAnalysis analysis);
+        Task UpdateAsync(DocumentAnalysis analysis);
     }
 }

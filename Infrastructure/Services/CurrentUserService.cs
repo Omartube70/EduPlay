@@ -1,6 +1,6 @@
-﻿using Application.Interfaces.Services;
+﻿using System.Security.Claims;
+using Application.Interfaces.Services;
 using Microsoft.AspNetCore.Http;
-using System.Security.Claims;
 
 namespace Infrastructure.Services
 {
@@ -17,12 +17,12 @@ namespace Infrastructure.Services
         {
             get
             {
-                var value = _httpContextAccessor.HttpContext?.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+                var value = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 return int.TryParse(value, out var id) ? id : 0;
             }
         }
 
-        public string Role => _httpContextAccessor.HttpContext?.User?.FindFirstValue(ClaimTypes.Role) ?? string.Empty;
+        public string Role => _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
 
         public bool IsAdmin => Role == "Admin";
     }

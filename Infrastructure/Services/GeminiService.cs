@@ -6,15 +6,15 @@ using Microsoft.Extensions.Configuration;
 namespace Infrastructure.Services
 {
     /// <summary>
-    /// Calls an AI provider (e.g. OpenAI Chat Completions) to summarize extracted document text.
-    /// Configure "AI:ApiKey", "AI:Endpoint" and "AI:Model" in appsettings.
+    /// Calls Google Gemini API to summarize extracted document text.
+    /// Configure "AI:ApiKey" and "AI:Model" in appsettings or user-secrets.
     /// </summary>
-    public class OpenAIService : IAIService
+    public class GeminiService : IAIService
     {
         private readonly HttpClient _httpClient;
         private readonly IConfiguration _configuration;
 
-        public OpenAIService(HttpClient httpClient, IConfiguration configuration)
+        public GeminiService(HttpClient httpClient, IConfiguration configuration)
         {
             _httpClient = httpClient;
             _configuration = configuration;
@@ -22,24 +22,30 @@ namespace Infrastructure.Services
 
         public async Task<(string Summary, string ResponseJson)> SummarizeAsync(string extractedText, CancellationToken cancellationToken = default)
         {
-            var apiKey = _configuration["AI:ApiKey"];
-            var endpoint = _configuration["AI:Endpoint"] ?? "https://api.openai.com/v1/chat/completions";
-            var model = _configuration["AI:Model"] ?? "gpt-4o-mini";
+            var apiKey = _configuration["AI:ApiKey"]
+                ?? throw new InvalidOperationException("AI:ApiKey is not configured.");
+
+            var model = _configuration["AI:Model"] ?? "gemini-2.5-flash";
+
+            var endpoint = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={apiKey}";
 
             var truncatedText = extractedText.Length > 12000 ? extractedText[..12000] : extractedText;
 
             var requestBody = new
             {
-                model,
-                messages = new object[]
+                contents = new object[]
                 {
-                    new { role = "system", content = "You are an assistant that summarizes educational documents concisely for students." },
-                    new { role = "user", content = $"Summarize the following document:\n\n{truncatedText}" }
+                    new
+                    {
+                        parts = new object[]
+                        {
+                            new { text = $"Summarize the following educational document concisely for students:\n\n{truncatedText}" }
+                        }
+                    }
                 }
             };
 
             using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
-            request.Headers.Add("Authorization", $"Bearer {apiKey}");
             request.Content = JsonContent.Create(requestBody);
 
             using var response = await _httpClient.SendAsync(request, cancellationToken);
@@ -49,9 +55,10 @@ namespace Infrastructure.Services
 
             using var doc = JsonDocument.Parse(responseJson);
             var summary = doc.RootElement
-                .GetProperty("choices")[0]
-                .GetProperty("message")
+                .GetProperty("candidates")[0]
                 .GetProperty("content")
+                .GetProperty("parts")[0]
+                .GetProperty("text")
                 .GetString() ?? string.Empty;
 
             return (summary, responseJson);

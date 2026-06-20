@@ -53,8 +53,8 @@ namespace Domain.Entities
 
         public void MarkAsProcessing()
         {
-            if (ProcessingStatus != ProcessingStatus.Pending)
-                throw new InvalidOperationException("Only pending documents can be marked as processing.");
+            if (ProcessingStatus != ProcessingStatus.Pending && ProcessingStatus != ProcessingStatus.Failed)
+                throw new InvalidOperationException("Only pending or failed documents can be marked as processing.");
 
             ProcessingStatus = ProcessingStatus.Processing;
         }

@@ -25,7 +25,8 @@ namespace API.Controllers
         /// <summary>Upload a new document (.pdf, .doc, .docx, .txt — max 20 MB).</summary>
         [HttpPost]
         [RequestSizeLimit(20 * 1024 * 1024)]
-        public async Task<IActionResult> Upload([FromForm] IFormFile file)
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> Upload(IFormFile file)
         {
             var result = await _mediator.Send(new UploadDocumentCommand
             {

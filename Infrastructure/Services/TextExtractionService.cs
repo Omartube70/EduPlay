@@ -1,7 +1,7 @@
 ﻿using System.Text;
 using Application.Interfaces.Services;
 using DocumentFormat.OpenXml.Packaging;
-using UglyToad.PdfPig;
+using IronOcr;
 
 namespace Infrastructure.Services
 {
@@ -22,13 +22,14 @@ namespace Infrastructure.Services
 
         private static string ExtractFromPdf(string filePath)
         {
-            var sb = new StringBuilder();
-            using var document = PdfDocument.Open(filePath);
+            var ocr = new IronTesseract();
+            ocr.Language = OcrLanguage.Arabic;
 
-            foreach (var page in document.GetPages())
-                sb.AppendLine(page.Text);
-
-            return sb.ToString();
+            using (var input = new OcrInput(filePath))
+            {
+                var result = ocr.Read(input);
+                return result.Text;
+            }
         }
 
         private static string ExtractFromWord(string filePath)

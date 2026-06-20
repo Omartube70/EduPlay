@@ -34,7 +34,7 @@ namespace Infrastructure.Extensions
             services.AddSingleton<IFileStorageService, LocalFileStorageService>();
             services.AddScoped<ITextExtractionService, TextExtractionService>();
 
-            services.AddHttpClient<IAIService, OpenAIService>();
+            services.AddHttpClient<IAIService, GeminiService>();
 
             services.AddScoped<DocumentProcessingJob>();
 

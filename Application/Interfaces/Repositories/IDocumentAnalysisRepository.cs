@@ -4,7 +4,7 @@ using System.Text;
 
 namespace Application.Interfaces.Repositories
 {
-    public class IDocumentRepository
+    public class IDocumentAnalysisRepository
     {
     }
 }

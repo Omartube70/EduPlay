@@ -4,7 +4,7 @@ using System.Text;
 
 namespace Application.Interfaces.Services
 {
-    internal class IFileStorageService
+    public interface IFileStorageService
     {
     }
 }

@@ -4,7 +4,7 @@ using System.Text;
 
 namespace Application.Interfaces.Services
 {
-    public interface IAIService
+    public interface IPasswordHasher
     {
     }
 }

@@ -2,9 +2,9 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace Infrastructure.Services
+namespace Application.Interfaces.Services
 {
-    internal class FileStorageService
+    public interface IRefreshTokenGenerator
     {
     }
 }

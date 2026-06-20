@@ -2,9 +2,9 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace Infrastructure.Security
+namespace Application.Interfaces.Services
 {
-    internal class JwtTokenGenerator
+    public interface IJwtService
     {
     }
 }

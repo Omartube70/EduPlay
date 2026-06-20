@@ -1,5 +1,5 @@
 <Solution>
-  <Project Path="AIFileProcessor.API/API.csproj" />
+  <Project Path="API/API.csproj" />
   <Project Path="Application/Application.csproj" />
   <Project Path="Domain/Domain.csproj" />
   <Project Path="Infrastructure/Infrastructure.csproj" />

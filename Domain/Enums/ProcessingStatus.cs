@@ -4,7 +4,11 @@ using System.Text;
 
 namespace Domain.Enums
 {
-    enum  ProcessingStatus
+    public enum ProcessingStatus
     {
+        Pending = 1,
+        Processing = 2,
+        Completed = 3,
+        Failed = 4
     }
 }

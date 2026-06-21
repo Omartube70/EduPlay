@@ -1,5 +1,5 @@
 ﻿using Application.Exceptions;
-using Application.Features.Auth.DTOs;
+using Application.Features.Users.DTOs;
 using Application.Interfaces.Repositories;
 using Application.Interfaces.Services;
 using AutoMapper;

@@ -40,6 +40,18 @@ namespace Domain.Entities
             return new User(userName, email, passwordHash);
         }
 
+        public void UpdateInfo(string userName, string email)
+        {
+            if (string.IsNullOrWhiteSpace(userName))
+                throw new ArgumentException("Username is required.", nameof(userName));
+
+            if (string.IsNullOrWhiteSpace(email))
+                throw new ArgumentException("Email is required.", nameof(email));
+
+            UserName = userName;
+            Email = email;
+        }
+
         public void ChangePassword(string newPasswordHash)
         {
             if (string.IsNullOrWhiteSpace(newPasswordHash))

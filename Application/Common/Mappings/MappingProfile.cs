@@ -1,5 +1,5 @@
-﻿using Application.Features.Auth.DTOs;
-using Application.Features.Documents.DTOs;
+﻿using Application.Features.Documents.DTOs;
+using Application.Features.Users.DTOs;
 using AutoMapper;
 using Domain.Entities;
 

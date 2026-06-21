@@ -84,6 +84,9 @@ namespace API.Middlewares
                 InvalidOperationException invalidOpEx => (
                     HttpStatusCode.BadRequest, invalidOpEx.Message, null),
 
+                UserNotFoundException userNotFoundEx => (
+                    HttpStatusCode.NotFound, userNotFoundEx.Message, null),
+
                 _ => (
                     HttpStatusCode.InternalServerError,
                     "An unexpected error occurred. Please try again later.",

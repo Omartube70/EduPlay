@@ -12,8 +12,7 @@ var app = builder.Build();
 
 app.UseGlobalExceptionMiddleware();
 
-if (app.Environment.IsDevelopment())
-{
+
     app.MapOpenApi();
 
     app.UseSwaggerUI(options =>
@@ -21,7 +20,7 @@ if (app.Environment.IsDevelopment())
         options.SwaggerEndpoint("/openapi/v1.json", "EduPlay API v1");
         options.RoutePrefix = "swagger";
     });
-}
+
 
 app.UseHttpsRedirection();
 

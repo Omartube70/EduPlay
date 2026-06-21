@@ -1,10 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
-using Application.Features.Auth.DTOs;
 using Application.Interfaces.Repositories;
 
-namespace Application.Features.Auth.DTOs
+namespace Application.Features.Users.DTOs
 {
         public class UserDto
         {

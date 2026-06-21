@@ -48,7 +48,7 @@ namespace API.Controllers
         }
 
         /// <summary>Revoke a user's refresh token (logout). Admins can revoke any user's token.</summary>
-        [HttpPost("revoke/{targetUserId:int}")]
+        [HttpPost("logout/{targetUserId:int}")]
         [Authorize]
         public async Task<IActionResult> Revoke(int targetUserId)
         {

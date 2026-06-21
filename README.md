@@ -40,6 +40,7 @@
 | 🔍 **Text Extraction** | PDF via IronOCR (Arabic + English), DOCX via OpenXML, TXT native |
 | 🤖 **AI Summarization** | Google Gemini 2.5 Flash summarizes documents for students |
 | 🔐 **JWT Auth** | Access token + refresh token rotation |
+| 👤 **Self-Service Profile** | Get/update own profile, change password |
 | 👮 **Role-Based Access** | `User` and `Admin` roles |
 | ⚙️ **Background Jobs** | `DocumentProcessingJob` for async processing |
 | 🛡️ **Global Error Handling** | Centralized middleware with typed exceptions |
@@ -57,11 +58,10 @@ EduPlay/
 ├── 📦 API/                         → Controllers, Middleware, Program.cs
 │   ├── Controllers/
 │   │   ├── AuthController.cs
+│   │   ├── UsersController.cs
 │   │   └── DocumentsController.cs
-│   ├── Middlewares/
-│   │   └── GlobalExceptionMiddleware.cs
-│   └── Services/
-│       └── CurrentUserService.cs   (stub — implemented in Infrastructure)
+│   └── Middlewares/
+│       └── GlobalExceptionMiddleware.cs
 │
 ├── 📦 Application/                 → Use Cases, CQRS, DTOs, Validators
 │   ├── Behaviors/
@@ -70,13 +70,17 @@ EduPlay/
 │   │   ├── Auth/
 │   │   │   ├── Commands/           (Register, Login, RefreshToken, RevokeToken)
 │   │   │   └── DTOs/               (UserDto, LoginResponseDto)
+│   │   ├── Users/
+│   │   │   ├── Commands/           (UpdateUser, ChangePassword, DeleteUser, PromoteToAdmin)
+│   │   │   ├── Queries/            (GetAllUsers, GetUserById)
+│   │   │   └── DTOs/               (UserDto, UpdateUserDto, ChangePasswordDto)
 │   │   └── Documents/
 │   │       ├── Commands/           (Upload, Analyze, Delete)
 │   │       ├── Queries/            (GetById, GetMine, GetAll)
 │   │       └── DTOs/               (DocumentDto, DocumentAnalysisDto)
 │   └── Interfaces/
 │       ├── Repositories/           (IUserRepository, IDocumentRepository, …)
-│       └── Services/               (IJwtService, IAIService, ITextExtractionService, …)
+│       └── Services/               (IJwtService, IAIService, ICurrentUserService, …)
 │
 ├── 📦 Domain/                      → Entities, Enums, Business Rules
 │   ├── Entities/
@@ -101,7 +105,7 @@ EduPlay/
     │   ├── PasswordHasher.cs       (BCrypt)
     │   └── RefreshTokenGenerator.cs
     └── Services/
-        ├── CurrentUserService.cs
+        ├── CurrentUserService.cs   (reads claims from HttpContext)
         ├── GeminiService.cs
         ├── LocalFileStorageService.cs
         └── TextExtractionService.cs
@@ -168,7 +172,7 @@ ProcessingStatus: Pending → Processing → Completed
      │ ──────────────────────────────────────────────────▶│
      │◀────────────── { new accessToken, new refreshToken}│
      │                                                    │
-     │   POST /api/auth/revoke/{userId}  (logout)         │
+     │   POST /api/auth/logout/{userId}                   │
      │ ──────────────────────────────────────────────────▶│
 ```
 
@@ -188,7 +192,7 @@ ProcessingStatus: Pending → Processing → Completed
 | `POST` | `/register` | ❌ Public | Register a new user |
 | `POST` | `/login` | ❌ Public | Login → returns access + refresh tokens |
 | `POST` | `/refresh` | ❌ Public | Exchange refresh token for a new pair |
-| `POST` | `/revoke/{userId}` | ✅ Bearer | Revoke refresh token (logout). Admin can revoke any user. |
+| `POST` | `/logout/{targetUserId}` | ✅ Bearer | Revoke refresh token (logout). Admin can revoke any user. |
 
 <details>
 <summary><b>📋 Register — Request & Response</b></summary>
@@ -264,6 +268,112 @@ Content-Type: application/json
   "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...(new)",
   "refreshToken": "newRefreshTokenValue...",
   "user": { ... }
+}
+```
+</details>
+
+---
+
+### 👤 Users — `/api/users`
+
+> All endpoints require `Authorization: Bearer <accessToken>`
+
+| Method | Endpoint | Role | Description |
+|--------|----------|------|-------------|
+| `GET` | `/` | **Admin** | Get all users in the system |
+| `GET` | `/me` | User | Get the currently authenticated user's profile |
+| `GET` | `/{id}` | Owner / Admin | Get a single user by ID |
+| `PUT` | `/{id}` | Owner / Admin | Update username/email |
+| `POST` | `/{id}/change-password` | Owner / Admin | Change a user's password |
+| `DELETE` | `/{id}` | Owner / Admin | Delete a user account |
+| `POST` | `/{id}/promote` | **Admin** | Promote a user to Admin role |
+
+<details>
+<summary><b>📋 Get My Profile — Response</b></summary>
+
+**Request**
+```http
+GET /api/users/me
+Authorization: Bearer <token>
+```
+
+**Response `200 OK`**
+```json
+{
+  "userId": 1,
+  "userName": "ahmed_ali",
+  "email": "ahmed@example.com",
+  "userRole": "User"
+}
+```
+</details>
+
+<details>
+<summary><b>📋 Update User — Request & Response</b></summary>
+
+**Request**
+```json
+PUT /api/users/1
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "userName": "ahmed_updated",
+  "email": "ahmed.new@example.com"
+}
+```
+
+**Response `200 OK`**
+```json
+{
+  "userId": 1,
+  "userName": "ahmed_updated",
+  "email": "ahmed.new@example.com",
+  "userRole": "User"
+}
+```
+</details>
+
+<details>
+<summary><b>📋 Change Password — Request & Response</b></summary>
+
+**Request**
+```json
+POST /api/users/1/change-password
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "newPassword": "NewSecurePass456!"
+}
+```
+
+**Response**
+```
+204 No Content
+```
+
+> ⚠️ Note: a non-admin user changing **their own** password should also be required to confirm
+> their current password. If your handler doesn't already enforce this, add a `currentPassword`
+> field to the request and verify it before issuing a new hash.
+</details>
+
+<details>
+<summary><b>📋 Promote to Admin — Response</b></summary>
+
+**Request**
+```http
+POST /api/users/5/promote
+Authorization: Bearer <admin-token>
+```
+
+**Response `200 OK`**
+```json
+{
+  "userId": 5,
+  "userName": "sara_dev",
+  "email": "sara@example.com",
+  "userRole": "Admin"
 }
 ```
 </details>
@@ -356,7 +466,7 @@ All errors return a consistent JSON shape:
 | `400` | Validation errors, bad arguments |
 | `401` | Invalid credentials, expired/invalid token |
 | `403` | Accessing another user's resource |
-| `404` | Document not found |
+| `404` | Document or user not found |
 | `409` | Email already registered |
 | `500` | Unexpected server error |
 
@@ -421,6 +531,8 @@ All passwords must satisfy:
 - ✅ At least one **number** `[0-9]`
 - ✅ At least one **special character** `[!@#$%...]`
 
+This applies to registration **and** to changing a password via `/api/users/{id}/change-password`.
+
 ---
 
 ## 📦 Key NuGet Packages
@@ -471,14 +583,17 @@ Pending ──► Processing ──► Completed
 
 ### Recommended Frontend Flow
 ```
-1. POST /api/auth/register    → create account
-2. POST /api/auth/login       → get { accessToken, refreshToken }
-3. POST /api/documents        → upload file (multipart)
-4. POST /api/documents/{id}/analyze  → trigger AI analysis
-5. GET  /api/documents/{id}   → poll until processingStatus === "Completed"
-6. Display analysis.aiSummary → show the AI summary to the user
-7. POST /api/auth/refresh     → when accessToken expires (60 min)
-8. POST /api/auth/revoke/{id} → logout
+1. POST /api/auth/register              → create account
+2. POST /api/auth/login                 → get { accessToken, refreshToken }
+3. GET  /api/users/me                   → fetch profile to populate the UI
+4. POST /api/documents                  → upload file (multipart)
+5. POST /api/documents/{id}/analyze     → trigger AI analysis
+6. GET  /api/documents/{id}             → poll until processingStatus === "Completed"
+7. Display analysis.aiSummary           → show the AI summary to the user
+8. PUT  /api/users/{id}                 → let the user edit username/email
+9. POST /api/users/{id}/change-password → let the user change their password
+10. POST /api/auth/refresh              → when accessToken expires (60 min)
+11. POST /api/auth/logout/{id}          → logout
 ```
 
 ### CORS

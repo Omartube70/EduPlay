@@ -16,6 +16,7 @@ namespace Application
             services.AddValidatorsFromAssembly(assembly);
             services.AddAutoMapper(cfg => { }, assembly);
 
+
             services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
 
             return services;

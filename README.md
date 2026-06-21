@@ -8,12 +8,27 @@
 ![MediatR](https://img.shields.io/badge/MediatR-CQRS-FF6B6B?style=for-the-badge)
 ![JWT](https://img.shields.io/badge/JWT-Auth-000000?style=for-the-badge&logo=jsonwebtokens&logoColor=white)
 ![Gemini](https://img.shields.io/badge/Google-Gemini_AI-4285F4?style=for-the-badge&logo=google&logoColor=white)
+![MonsterASP](https://img.shields.io/badge/Hosted_on-MonsterASP.NET-00C853?style=for-the-badge&logo=windows&logoColor=white)
 
 **Upload documents → Extract text → Get AI summaries. Built for students.**
 
-[API Endpoints](#-api-endpoints) · [Architecture](#-architecture) · [Setup](#-setup--installation) · [Auth Flow](#-authentication-flow)
+[🚀 Live Demo](#-live-demo) · [📡 API Endpoints](#-api-endpoints) · [🏗️ Architecture](#-architecture) · [⚙️ Setup](#-setup--installation) · [🔐 Auth Flow](#-authentication-flow)
 
 </div>
+
+---
+
+## 🚀 Live Demo
+
+> The API is **live and running** on MonsterASP.NET with a real SQL Server database.
+
+| Resource | URL |
+|----------|-----|
+| 🌐 **Live API** | [`https://eduplayapi.runasp.net`](https://eduplayapi.runasp.net) |
+| 📖 **Swagger UI** | [`https://eduplayapi.runasp.net/swagger/index.html`](https://eduplayapi.runasp.net/swagger/index.html) |
+| 🗺️ **ERD (Lucidchart)** | [`View Database Diagram`](https://lucid.app/lucidchart/5af8fe89-a34b-4efc-9c6c-23d00dc13fc1/edit?viewport_loc=613%2C-224%2C2175%2C1212%2C0_0&invitationId=inv_54ab381d-0324-4858-bd94-639a0614e374) |
+
+> **Tip for frontend devs:** Use the Swagger UI to explore and test all endpoints interactively before writing a single line of code.
 
 ---
 
@@ -29,6 +44,7 @@
 | ⚙️ **Background Jobs** | `DocumentProcessingJob` for async processing |
 | 🛡️ **Global Error Handling** | Centralized middleware with typed exceptions |
 | 📖 **OpenAPI / Swagger** | JWT-secured interactive docs at `/swagger` |
+| ☁️ **Live Hosting** | Deployed on MonsterASP.NET with SQL Server |
 
 ---
 
@@ -93,6 +109,45 @@ EduPlay/
 
 ---
 
+## 🗄️ Entity Relationship Diagram
+
+> 📌 [View full interactive ERD on Lucidchart](https://lucid.app/lucidchart/5af8fe89-a34b-4efc-9c6c-23d00dc13fc1/edit?viewport_loc=613%2C-224%2C2175%2C1212%2C0_0&invitationId=inv_54ab381d-0324-4858-bd94-639a0614e374)
+
+```
+┌──────────────────────────────────┐
+│              Users               │
+├──────────────────────────────────┤
+│ PK  UserID          INT          │
+│     UserName        NVARCHAR(100)│ UNIQUE
+│     Email           NVARCHAR(200)│ UNIQUE
+│     PasswordHash    NVARCHAR(MAX)│
+│     UserPermissions NVARCHAR(50) │ 'User' | 'Admin'
+│     RefreshToken    NVARCHAR(MAX)│ nullable
+│     RefreshTokenExpiryTime       │ nullable
+└────────────────┬─────────────────┘
+                 │ 1
+                 │ CASCADE DELETE
+                 │ *
+┌────────────────▼─────────────────┐         ┌──────────────────────────────────┐
+│            Documents             │         │         DocumentAnalyses          │
+├──────────────────────────────────┤         ├──────────────────────────────────┤
+│ PK  DocumentID     INT           │   1:1   │ PK  DocumentAnalysisID   INT     │
+│     FileName       NVARCHAR(200) │◀──────▶ │     ExtractedText        TEXT    │
+│     FilePath       NVARCHAR(MAX) │ CASCADE │     AiSummary            TEXT    │
+│     FileSizeInBytes BIGINT       │ DELETE  │     AiResponseJson       TEXT?   │
+│     ContentType    NVARCHAR(50)  │         │     AnalyzedAt           DATETIME│
+│     ProcessingStatus NVARCHAR(50)│         │ FK  DocumentId           INT     │
+│     UploadedAt     DATETIME2     │         └──────────────────────────────────┘
+│ FK  UserId         INT           │
+└──────────────────────────────────┘
+
+ContentType:      Pdf | Word | Txt
+ProcessingStatus: Pending → Processing → Completed
+                                     └→ Failed  (retryable)
+```
+
+---
+
 ## 🔐 Authentication Flow
 
 ```
@@ -122,6 +177,9 @@ EduPlay/
 ---
 
 ## 📡 API Endpoints
+
+> **Base URL (Production):** `https://eduplayapi.runasp.net`
+> **Base URL (Local):** `http://localhost:5220`
 
 ### 🔑 Auth — `/api/auth`
 
@@ -183,6 +241,29 @@ Content-Type: application/json
     "email": "ahmed@example.com",
     "userRole": "User"
   }
+}
+```
+</details>
+
+<details>
+<summary><b>📋 Refresh Token — Request & Response</b></summary>
+
+**Request**
+```json
+POST /api/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "v8K2mN9xQr..."
+}
+```
+
+**Response `200 OK`**
+```json
+{
+  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...(new)",
+  "refreshToken": "newRefreshTokenValue...",
+  "user": { ... }
 }
 ```
 </details>
@@ -281,42 +362,6 @@ All errors return a consistent JSON shape:
 
 ---
 
-## 🧱 Domain Model
-
-```
-┌──────────────────────────────┐
-│           User               │
-├──────────────────────────────┤
-│ + UserID : int (PK)          │
-│ + UserName : string          │
-│ + Email : string (unique)    │
-│ + PasswordHash : string      │
-│ + UserPermissions : enum     │ ──── User | Admin
-│ + RefreshToken : string?     │
-│ + RefreshTokenExpiryTime     │
-└──────────┬───────────────────┘
-           │ 1
-           │ has many
-           │ *
-┌──────────▼───────────────────┐       ┌──────────────────────────────┐
-│         Document             │       │       DocumentAnalysis        │
-├──────────────────────────────┤       ├──────────────────────────────┤
-│ + DocumentID : int (PK)      │  1:1  │ + DocumentAnalysisID : int   │
-│ + FileName : string          │◀─────▶│ + ExtractedText : string     │
-│ + FilePath : string          │       │ + AiSummary : string         │
-│ + FileSizeInBytes : long     │       │ + AiResponseJson : string?   │
-│ + ContentType : enum         │       │ + AnalyzedAt : DateTime      │
-│ + ProcessingStatus : enum    │       └──────────────────────────────┘
-│ + UploadedAt : DateTime      │
-│ + UserId : int (FK)          │
-└──────────────────────────────┘
-
-ProcessingStatus: Pending → Processing → Completed
-                                      ↘ Failed → (can retry)
-```
-
----
-
 ## ⚙️ Setup & Installation
 
 ### Prerequisites
@@ -362,6 +407,7 @@ dotnet run
 | HTTP | `http://localhost:5220` |
 | HTTPS | `https://localhost:7078` |
 | Swagger UI | `https://localhost:7078/swagger` |
+| **Production** | `https://eduplayapi.runasp.net` |
 
 ---
 
@@ -398,10 +444,13 @@ All passwords must satisfy:
 
 > For the frontend developer connecting to this API:
 
-### Base URL
-```
-http://localhost:5220
-```
+### Base URLs
+
+| Environment | URL |
+|-------------|-----|
+| 🏭 **Production** | `https://eduplayapi.runasp.net` |
+| 💻 **Local Dev** | `http://localhost:5220` |
+| 📖 **Swagger (Prod)** | `https://eduplayapi.runasp.net/swagger/index.html` |
 
 ### Auth Headers
 ```http
@@ -420,30 +469,54 @@ Pending ──► Processing ──► Completed
                       └──► Failed (can be retried via POST /{id}/analyze)
 ```
 
+### Recommended Frontend Flow
+```
+1. POST /api/auth/register    → create account
+2. POST /api/auth/login       → get { accessToken, refreshToken }
+3. POST /api/documents        → upload file (multipart)
+4. POST /api/documents/{id}/analyze  → trigger AI analysis
+5. GET  /api/documents/{id}   → poll until processingStatus === "Completed"
+6. Display analysis.aiSummary → show the AI summary to the user
+7. POST /api/auth/refresh     → when accessToken expires (60 min)
+8. POST /api/auth/revoke/{id} → logout
+```
+
 ### CORS
-> Not yet configured. Add your frontend origin in `Program.cs` before connecting.
+> Not yet configured for production. If you get CORS errors, contact the backend developer to add your frontend origin.
 
 ---
 
 ## 📁 File Storage
 
-Uploaded files are stored locally under:
+Uploaded files are stored on the server under:
 ```
-API/uploads/<guid>.<ext>
+uploads/<guid>.<ext>
 ```
 
-> For production, replace `LocalFileStorageService` with an Azure Blob / S3 implementation of `IFileStorageService`.
+> For a future production upgrade, `LocalFileStorageService` can be swapped with an Azure Blob / S3 implementation of `IFileStorageService` without touching any other layer.
 
 ---
 
-## 🤝 Contributing
+## 👨‍💻 Built By
 
-This backend is part of a competition project. The backend is maintained by **Omar**. Frontend integration is handled by a separate developer.
+<div align="center">
+
+**Omar** — Backend Developer
+
+Clean Architecture · CQRS · .NET 10 · SQL Server · Gemini AI
+
+*Competition Project — Backend by Omar · Frontend by a separate developer*
+
+</div>
 
 ---
 
 <div align="center">
 
-Built with ❤️ using **.NET 10** · **Clean Architecture** · **CQRS** · **Gemini AI**
+[![Live API](https://img.shields.io/badge/🌐_Live_API-eduplayapi.runasp.net-00C853?style=for-the-badge)](https://eduplayapi.runasp.net)
+[![Swagger](https://img.shields.io/badge/📖_Swagger_UI-Try_it_Live-85EA2D?style=for-the-badge&logo=swagger&logoColor=black)](https://eduplayapi.runasp.net/swagger/index.html)
+[![ERD](https://img.shields.io/badge/🗺️_ERD-View_on_Lucidchart-FF6B35?style=for-the-badge)](https://lucid.app/lucidchart/5af8fe89-a34b-4efc-9c6c-23d00dc13fc1/edit?viewport_loc=613%2C-224%2C2175%2C1212%2C0_0&invitationId=inv_54ab381d-0324-4858-bd94-639a0614e374)
+
+Built with ❤️ by **Omar** using **.NET 10** · **Clean Architecture** · **CQRS** · **Gemini AI**
 
 </div>

@@ -1,7 +1,9 @@
-﻿using System.Text;
-using Application.Interfaces.Services;
+﻿using Application.Interfaces.Services;
 using DocumentFormat.OpenXml.Packaging;
-using IronOcr;
+using iText.Kernel.Pdf;
+using iText.Kernel.Pdf.Canvas.Parser;
+using iText.Kernel.Pdf.Canvas.Parser.Listener;
+using System.Text;
 
 namespace Infrastructure.Services
 {
@@ -22,13 +24,19 @@ namespace Infrastructure.Services
 
         private static string ExtractFromPdf(string filePath)
         {
-            var ocr = new IronTesseract();
-            ocr.Language = OcrLanguage.Arabic;
-
-            using (var input = new OcrInput(filePath))
+            using (PdfReader reader = new PdfReader(filePath))
+            using (PdfDocument pdfDoc = new PdfDocument(reader))
             {
-                var result = ocr.Read(input);
-                return result.Text;
+                var text = new StringBuilder();
+
+                for (int i = 1; i <= pdfDoc.GetNumberOfPages(); i++)
+                {
+                    var strategy = new LocationTextExtractionStrategy();
+                    string pageText = PdfTextExtractor.GetTextFromPage(pdfDoc.GetPage(i), strategy);
+                    text.AppendLine(pageText);
+                }
+
+                return text.ToString();
             }
         }
 

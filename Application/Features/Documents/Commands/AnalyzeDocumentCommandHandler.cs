@@ -37,17 +37,11 @@ namespace Application.Features.Documents.Commands
             if (document == null)
                 throw new DocumentNotFoundException(request.DocumentId);
 
-            if(document.DocumentAnalysis == null)
-                throw new BadRequestException("Document analysis data is missing. Please ensure that the document has been processed for text extraction before analyzing.");
+           
 
             if (!request.IsAdmin && document.UserId != request.CurrentUserId)
                 throw new ForbiddenAccessException("You don't have permission to analyze this document.");
 
-
-            if (string.IsNullOrWhiteSpace(document.DocumentAnalysis.ExtractedText))
-            {
-                throw new BadRequestException("please ensure that the text is extracted first.");
-            }
 
             document.MarkAsProcessing();
             await _documentRepository.UpdateDocumentAsync(document);

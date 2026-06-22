@@ -5,16 +5,12 @@ using Microsoft.Extensions.Configuration;
 
 namespace Infrastructure.Services
 {
-    /// <summary>
-    /// Calls Google Gemini API to summarize extracted document text into a strictly structured JSON.
-    /// Configure "AI:ApiKey" and "AI:Model" in appsettings or user-secrets.
-    /// </summary>
-    public class GeminiService : IAIService
+    public class GroqService : IAIService
     {
         private readonly HttpClient _httpClient;
         private readonly IConfiguration _configuration;
 
-        public GeminiService(HttpClient httpClient, IConfiguration configuration)
+        public GroqService(HttpClient httpClient, IConfiguration configuration)
         {
             _httpClient = httpClient;
             _configuration = configuration;
@@ -25,9 +21,8 @@ namespace Infrastructure.Services
             var apiKey = _configuration["AI:ApiKey"]
                 ?? throw new InvalidOperationException("AI:ApiKey is not configured.");
 
-            var model = _configuration["AI:Model"] ?? "gemini-2.5-flash";
-
-            var endpoint = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={apiKey}";
+            var model = _configuration["AI:Model"] ?? "llama-3.3-70b-versatile";
+            var baseUrl = _configuration["AI:BaseUrl"] ?? throw new InvalidOperationException("AI:BaseUrl is not configured.");
 
             var truncatedText = extractedText.Length > 12000 ? extractedText[..12000] : extractedText;
 
@@ -37,30 +32,18 @@ namespace Infrastructure.Services
 
             var requestBody = new
             {
-                contents = new object[]
+                model,
+                messages = new object[]
                 {
-                    new
-                    {
-                        parts = new object[]
-                        {
-                            new { text = $"Analyze the following educational content and extract the structured data:\n\n{truncatedText}" }
-                        }
-                    }
+                    new { role = "system", content = strictPromptInstruction },
+                    new { role = "user", content = $"Analyze the following educational content and extract the structured data:\n\n{truncatedText}" }
                 },
-                systemInstruction = new
-                {
-                    parts = new object[]
-                    {
-                        new { text = strictPromptInstruction }
-                    }
-                },
-                generationConfig = new
-                {
-                    responseMimeType = "application/json" 
-                }
+                response_format = new { type = "json_object" },
+                temperature = 0.2
             };
 
-            using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
+            using var request = new HttpRequestMessage(HttpMethod.Post, baseUrl);
+            request.Headers.Add("Authorization", $"Bearer {apiKey}");
             request.Content = JsonContent.Create(requestBody);
 
             using var response = await _httpClient.SendAsync(request, cancellationToken);
@@ -71,10 +54,9 @@ namespace Infrastructure.Services
             using var doc = JsonDocument.Parse(responseJson);
 
             var structuredResultJson = doc.RootElement
-                .GetProperty("candidates")[0]
+                .GetProperty("choices")[0]
+                .GetProperty("message")
                 .GetProperty("content")
-                .GetProperty("parts")[0]
-                .GetProperty("text")
                 .GetString() ?? string.Empty;
 
             return (structuredResultJson, responseJson);

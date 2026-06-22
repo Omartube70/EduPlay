@@ -10,6 +10,9 @@ namespace Infrastructure.Persistence
         public DbSet<User> Users => Set<User>();
         public DbSet<Document> Documents => Set<Document>();
         public DbSet<DocumentAnalysis> DocumentAnalyses => Set<DocumentAnalysis>();
+        public DbSet<KeyConcept> KeyConcepts => Set<KeyConcept>();
+        public DbSet<SampleQuestion> SampleQuestions => Set<SampleQuestion>();
+        public DbSet<QuestionChoice> QuestionChoices => Set<QuestionChoice>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

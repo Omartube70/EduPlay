@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace Domain.Entities
+﻿namespace Domain.Entities
 {
     public class DocumentAnalysis
     {
@@ -12,17 +8,19 @@ namespace Domain.Entities
         public string? AiResponseJson { get; private set; }
         public DateTime AnalyzedAt { get; private set; }
 
-        // Foreign Keys
+        // Foreign Key
         public int DocumentId { get; private set; }
 
         // Navigation Properties
         public Document Document { get; private set; } = null!;
+        public ICollection<KeyConcept> KeyConcepts { get; private set; } = new List<KeyConcept>();
+        public ICollection<SampleQuestion> SampleQuestions { get; private set; } = new List<SampleQuestion>();
 
 #pragma warning disable CS8618
         private DocumentAnalysis() { }
 #pragma warning restore CS8618
 
-        private DocumentAnalysis(string extractedText, string aiSummary, string? aiResponseJson , int documentId)
+        private DocumentAnalysis(string extractedText, string aiSummary, string? aiResponseJson, int documentId)
         {
             ExtractedText = extractedText;
             AiSummary = aiSummary;
@@ -31,7 +29,7 @@ namespace Domain.Entities
             AnalyzedAt = DateTime.UtcNow;
         }
 
-        public static DocumentAnalysis Create(string extractedText, string aiSummary , string? aiResponseJson, int documentId)
+        public static DocumentAnalysis Create(string extractedText, string aiSummary, string? aiResponseJson, int documentId)
         {
             if (string.IsNullOrWhiteSpace(extractedText))
                 throw new ArgumentException("Extracted text is required.", nameof(extractedText));

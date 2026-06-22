@@ -8,6 +8,7 @@ namespace Domain.Entities
         public string Question { get; private set; }
         public QuestionType Type { get; private set; }
         public Difficulty Difficulty { get; private set; }
+        public string? CorrectAnswer { get; private set; }
         public int? AnswerIndex { get; private set; }
 
         // Foreign Key
@@ -21,16 +22,17 @@ namespace Domain.Entities
         private SampleQuestion() { }
 #pragma warning restore CS8618
 
-        private SampleQuestion(string question, QuestionType type, Difficulty difficulty, int? answerIndex, int documentAnalysisId)
+        private SampleQuestion(string question, QuestionType type, Difficulty difficulty, string? correctAnswer, int? answerIndex, int documentAnalysisId)
         {
             Question = question;
             Type = type;
             Difficulty = difficulty;
+            CorrectAnswer = correctAnswer; 
             AnswerIndex = answerIndex;
             DocumentAnalysisID = documentAnalysisId;
         }
 
-        public static SampleQuestion Create(string question, QuestionType type, Difficulty difficulty, int? answerIndex, int documentAnalysisId)
+        public static SampleQuestion Create(string question, QuestionType type, Difficulty difficulty, string? correctAnswer, int? answerIndex, int documentAnalysisId)
         {
             if (string.IsNullOrWhiteSpace(question))
                 throw new ArgumentException("Question text is required.", nameof(question));
@@ -41,10 +43,10 @@ namespace Domain.Entities
             if (type == QuestionType.MultipleChoice && answerIndex == null)
                 throw new ArgumentException("AnswerIndex is required for multiple-choice questions.", nameof(answerIndex));
 
-            return new SampleQuestion(question, type, difficulty, answerIndex, documentAnalysisId);
+            return new SampleQuestion(question, type, difficulty, correctAnswer, answerIndex, documentAnalysisId);
         }
 
-        public void Update(string question, QuestionType type, Difficulty difficulty, int? answerIndex)
+        public void Update(string question, QuestionType type, Difficulty difficulty, string? correctAnswer, int? answerIndex)
         {
             if (string.IsNullOrWhiteSpace(question))
                 throw new ArgumentException("Question text is required.", nameof(question));
@@ -55,6 +57,7 @@ namespace Domain.Entities
             Question = question;
             Type = type;
             Difficulty = difficulty;
+            CorrectAnswer = correctAnswer;
             AnswerIndex = answerIndex;
         }
     }

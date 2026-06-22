@@ -34,6 +34,9 @@ namespace Infrastructure.Extensions
             services.AddSingleton<IFileStorageService, LocalFileStorageService>();
             services.AddScoped<ITextExtractionService, TextExtractionService>();
 
+            services.AddScoped<IKeyConceptRepository, KeyConceptRepository>();
+            services.AddScoped<ISampleQuestionRepository, SampleQuestionRepository>();
+
             services.AddHttpClient<IAIService,GroqService>();
 
             services.AddScoped<DocumentProcessingJob>();

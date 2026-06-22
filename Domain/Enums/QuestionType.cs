@@ -3,7 +3,6 @@
     public enum QuestionType
     {
         ShortAnswer = 1,
-        MultipleChoice = 2,
-        TrueFalse = 3
+        MultipleChoice = 2
     }
 }

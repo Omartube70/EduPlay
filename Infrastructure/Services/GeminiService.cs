@@ -9,11 +9,25 @@ namespace Infrastructure.Services
     {
         private readonly HttpClient _httpClient;
         private readonly IConfiguration _configuration;
+        private readonly string _systemPrompt;
 
         public GroqService(HttpClient httpClient, IConfiguration configuration)
         {
+
             _httpClient = httpClient;
             _configuration = configuration;
+
+            var basePath = AppDomain.CurrentDomain.BaseDirectory;
+            var promptPath = Path.Combine(basePath, "Prompts", "SystemPrompt.txt");
+
+            if (File.Exists(promptPath))
+            {
+                _systemPrompt = File.ReadAllText(promptPath);
+            }
+            else
+            {
+                throw new FileNotFoundException("System prompt file is missing!", promptPath);
+            }
         }
 
         public async Task<(string Summary, string ResponseJson)> SummarizeAsync(string extractedText, CancellationToken cancellationToken = default)
@@ -25,17 +39,13 @@ namespace Infrastructure.Services
             var baseUrl = _configuration["AI:BaseUrl"] ?? throw new InvalidOperationException("AI:BaseUrl is not configured.");
 
             var truncatedText = extractedText.Length > 12000 ? extractedText[..12000] : extractedText;
-
-            var strictPromptInstruction = """
-            Return exactly one JSON object (no surrounding text or fences). The object MUST follow this shape: { "documentId": integer or null, "aiSummary": string, "keyConcepts": [ { "title": string, "description": string } ], "sampleQuestions": [ { "question": string, "type": "short-answer"|"multiple-choice"|"true-false", "choices": [string] (required for multiple-choice), "answerIndex": integer (0-based, required for multiple-choice), "difficulty": "easy"|"medium"|"hard" (optional) } ], "metadata": { "sourceTextExcerpt": string (optional), "confidence": number 0.0-1.0 (optional) } }. Requirements: produce up to 8 items in keyConcepts and up to 8 in sampleQuestions; aiSummary should be 100–300 words; if you cannot produce structured keyConcepts/sampleQuestions, return empty arrays and put the full analysis text in aiSummary; strings must be JSON-safe (escape newlines); sampleQuestions types must be one of the three allowed values; for multiple-choice include choices and answerIndex (0-based); do not include any extra fields beyond this shape (extra fields allowed only under metadata); do NOT include any explanatory text, markdown, or code fences—output only the JSON object.
-            """;
-
+           
             var requestBody = new
             {
                 model,
                 messages = new object[]
                 {
-                    new { role = "system", content = strictPromptInstruction },
+                    new { role = "system", content = _systemPrompt },
                     new { role = "user", content = $"Analyze the following educational content and extract the structured data:\n\n{truncatedText}" }
                 },
                 response_format = new { type = "json_object" },

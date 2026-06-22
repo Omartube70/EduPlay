@@ -1,4 +1,5 @@
-﻿namespace Application.Features.Documents.DTOs
+﻿
+namespace Application.Features.Documents.DTOs
 {
     public class DocumentAnalysisDto
     {
@@ -7,5 +8,7 @@
         public string AiSummary { get; set; } = string.Empty;
         public string? AiResponseJson { get; set; }
         public DateTime AnalyzedAt { get; set; }
+        public List<KeyConceptDto> KeyConcepts { get; set; } = new();
+        public List<SampleQuestionDto> SampleQuestions { get; set; } = new();
     }
 }

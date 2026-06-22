@@ -19,19 +19,32 @@ namespace Infrastructure.Persistence.Repositories
         public async Task<Document?> GetDocumentWithAnalysisAsync(int documentId)
             => await _context.Documents
                 .Include(d => d.DocumentAnalysis)
+                    .ThenInclude(a => a!.KeyConcepts)
+                .Include(d => d.DocumentAnalysis)
+                    .ThenInclude(a => a!.SampleQuestions)
+                        .ThenInclude(q => q.Choices)
                 .FirstOrDefaultAsync(d => d.DocumentID == documentId);
 
         public async Task<IReadOnlyList<Document>> GetDocumentsByUserIdAsync(int userId)
             => await _context.Documents
                 .Where(d => d.UserId == userId)
                 .Include(d => d.DocumentAnalysis)
+                    .ThenInclude(a => a!.KeyConcepts)
+                .Include(d => d.DocumentAnalysis)
+                    .ThenInclude(a => a!.SampleQuestions)
+                        .ThenInclude(q => q.Choices)
                 .OrderByDescending(d => d.UploadedAt)
                 .AsNoTracking()
                 .ToListAsync();
 
+
         public async Task<IReadOnlyList<Document>> GetAllDocumentsAsync()
             => await _context.Documents
                 .Include(d => d.DocumentAnalysis)
+                    .ThenInclude(a => a!.KeyConcepts)
+                .Include(d => d.DocumentAnalysis)
+                    .ThenInclude(a => a!.SampleQuestions)
+                        .ThenInclude(q => q.Choices)
                 .OrderByDescending(d => d.UploadedAt)
                 .AsNoTracking()
                 .ToListAsync();

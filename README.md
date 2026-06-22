@@ -7,10 +7,10 @@
 ![SQL Server](https://img.shields.io/badge/SQL_Server-2022-CC2927?style=for-the-badge&logo=microsoftsqlserver&logoColor=white)
 ![MediatR](https://img.shields.io/badge/MediatR-CQRS-FF6B6B?style=for-the-badge)
 ![JWT](https://img.shields.io/badge/JWT-Auth-000000?style=for-the-badge&logo=jsonwebtokens&logoColor=white)
-![Gemini](https://img.shields.io/badge/Google-Gemini_AI-4285F4?style=for-the-badge&logo=google&logoColor=white)
+![Groq](https://img.shields.io/badge/Groq-Llama_3.3_70B-F55036?style=for-the-badge&logo=meta&logoColor=white)
 ![MonsterASP](https://img.shields.io/badge/Hosted_on-MonsterASP.NET-00C853?style=for-the-badge&logo=windows&logoColor=white)
 
-**Upload documents → Extract text → Get AI summaries. Built for students.**
+**Upload documents → Extract text → Get AI summaries, key concepts & quiz questions. Built for students.**
 
 [🚀 Live Demo](#-live-demo) · [📡 API Endpoints](#-api-endpoints) · [🏗️ Architecture](#-architecture) · [⚙️ Setup](#-setup--installation) · [🔐 Auth Flow](#-authentication-flow)
 
@@ -37,8 +37,10 @@
 | Feature | Details |
 |---|---|
 | 📁 **Document Upload** | PDF, DOCX, DOC, TXT — up to 20 MB |
-| 🔍 **Text Extraction** | PDF via IronOCR (Arabic + English), DOCX via OpenXML, TXT native |
-| 🤖 **AI Summarization** | Google Gemini 2.5 Flash summarizes documents for students |
+| 🔍 **Text Extraction** | PDF via iText7, DOCX via OpenXML, TXT native |
+| 🤖 **AI Analysis** | Groq (Llama 3.3 70B) generates summary, key concepts, and quiz questions |
+| 📚 **Key Concepts** | AI extracts the most important concepts from the document |
+| ❓ **Sample Questions** | AI generates multiple-choice and short-answer questions with difficulty levels |
 | 🔐 **JWT Auth** | Access token + refresh token rotation |
 | 👤 **Self-Service Profile** | Get/update own profile, change password |
 | 👮 **Role-Based Access** | `User` and `Admin` roles |
@@ -77,20 +79,28 @@ EduPlay/
 │   │   └── Documents/
 │   │       ├── Commands/           (Upload, Analyze, Delete)
 │   │       ├── Queries/            (GetById, GetMine, GetAll)
-│   │       └── DTOs/               (DocumentDto, DocumentAnalysisDto)
+│   │       └── DTOs/               (DocumentDto, DocumentAnalysisDto,
+│   │                                KeyConceptDto, SampleQuestionDto, QuestionChoiceDto)
 │   └── Interfaces/
-│       ├── Repositories/           (IUserRepository, IDocumentRepository, …)
+│       ├── Repositories/           (IUserRepository, IDocumentRepository,
+│       │                            IDocumentAnalysisRepository, IKeyConceptRepository,
+│       │                            ISampleQuestionRepository)
 │       └── Services/               (IJwtService, IAIService, ICurrentUserService, …)
 │
 ├── 📦 Domain/                      → Entities, Enums, Business Rules
 │   ├── Entities/
 │   │   ├── User.cs
 │   │   ├── Document.cs
-│   │   └── DocumentAnalysis.cs
+│   │   ├── DocumentAnalysis.cs
+│   │   ├── KeyConcept.cs
+│   │   ├── SampleQuestion.cs
+│   │   └── QuestionChoice.cs
 │   └── Enums/
 │       ├── Permissions.cs          (User, Admin)
 │       ├── ContentType.cs          (Pdf, Word, Txt)
-│       └── ProcessingStatus.cs     (Pending, Processing, Completed, Failed)
+│       ├── ProcessingStatus.cs     (Pending, Processing, Completed, Failed)
+│       ├── QuestionType.cs         (ShortAnswer, MultipleChoice)
+│       └── Difficulty.cs           (Easy, Medium, Hard)
 │
 └── 📦 Infrastructure/              → EF Core, Repos, Services, Security
     ├── BackgroundJobs/
@@ -98,17 +108,21 @@ EduPlay/
     ├── Persistence/
     │   ├── ApplicationDbContext.cs
     │   ├── Configurations/         (Fluent API configs for all entities)
-    │   ├── Repositories/           (UserRepository, DocumentRepository, …)
+    │   ├── Repositories/           (UserRepository, DocumentRepository,
+    │   │                            DocumentAnalysisRepository, KeyConceptRepository,
+    │   │                            SampleQuestionRepository)
     │   └── Migrations/
+    ├── Prompts/
+    │   └── SystemPrompt.txt        (Groq/Llama system prompt for structured JSON output)
     ├── Security/
     │   ├── JwtService.cs
     │   ├── PasswordHasher.cs       (BCrypt)
     │   └── RefreshTokenGenerator.cs
     └── Services/
         ├── CurrentUserService.cs   (reads claims from HttpContext)
-        ├── GeminiService.cs
+        ├── GeminiService.cs        (GroqService — calls Groq API with Llama 3.3 70B)
         ├── LocalFileStorageService.cs
-        └── TextExtractionService.cs
+        └── TextExtractionService.cs (iText7 for PDF, OpenXML for DOCX)
 ```
 
 ---
@@ -132,22 +146,56 @@ EduPlay/
                  │ 1
                  │ CASCADE DELETE
                  │ *
-┌────────────────▼─────────────────┐         ┌──────────────────────────────────┐
-│            Documents             │         │         DocumentAnalyses          │
-├──────────────────────────────────┤         ├──────────────────────────────────┤
-│ PK  DocumentID     INT           │   1:1   │ PK  DocumentAnalysisID   INT     │
-│     FileName       NVARCHAR(200) │◀──────▶ │     ExtractedText        TEXT    │
-│     FilePath       NVARCHAR(MAX) │ CASCADE │     AiSummary            TEXT    │
-│     FileSizeInBytes BIGINT       │ DELETE  │     AiResponseJson       TEXT?   │
-│     ContentType    NVARCHAR(50)  │         │     AnalyzedAt           DATETIME│
-│     ProcessingStatus NVARCHAR(50)│         │ FK  DocumentId           INT     │
-│     UploadedAt     DATETIME2     │         └──────────────────────────────────┘
+┌────────────────▼─────────────────┐
+│            Documents             │
+├──────────────────────────────────┤
+│ PK  DocumentID     INT           │
+│     FileName       NVARCHAR(200) │
+│     FilePath       NVARCHAR(MAX) │
+│     FileSizeInBytes BIGINT       │
+│     ContentType    NVARCHAR(50)  │ 'Pdf' | 'Word' | 'Txt'
+│     ProcessingStatus NVARCHAR(50)│ 'Pending'→'Processing'→'Completed'|'Failed'
+│     UploadedAt     DATETIME2     │
 │ FK  UserId         INT           │
-└──────────────────────────────────┘
-
-ContentType:      Pdf | Word | Txt
-ProcessingStatus: Pending → Processing → Completed
-                                     └→ Failed  (retryable)
+└────────────────┬─────────────────┘
+                 │ 1:1
+                 │ CASCADE DELETE
+                 │
+┌────────────────▼─────────────────┐
+│         DocumentAnalyses         │
+├──────────────────────────────────┤
+│ PK  DocumentAnalysisID   INT     │
+│     ExtractedText        TEXT    │
+│     AiSummary            TEXT    │
+│     AiResponseJson       TEXT?   │
+│     AnalyzedAt           DATETIME│
+│ FK  DocumentId           INT     │
+└──────┬──────────────────┬────────┘
+       │ 1                │ 1
+       │ CASCADE DELETE   │ CASCADE DELETE
+       │ *                │ *
+┌──────▼──────────┐  ┌───▼──────────────────────────┐
+│   KeyConcepts   │  │       SampleQuestions         │
+├─────────────────┤  ├──────────────────────────────┤
+│ PK KeyConceptID │  │ PK SampleQuestionID  INT      │
+│    Title        │  │    Question          NVARCHAR  │
+│    Description  │  │    Type              NVARCHAR  │ 'ShortAnswer'|'MultipleChoice'
+│ FK DocumentAna- │  │    Difficulty        NVARCHAR  │ 'Easy'|'Medium'|'Hard'
+│    lysisID      │  │    CorrectAnswer     TEXT?     │
+└─────────────────┘  │    AnswerIndex       INT?      │
+                     │ FK DocumentAnalysisID INT      │
+                     └──────────────┬────────────────┘
+                                    │ 1
+                                    │ CASCADE DELETE
+                                    │ *
+                          ┌─────────▼──────────┐
+                          │   QuestionChoices   │
+                          ├────────────────────┤
+                          │ PK QuestionChoiceID │
+                          │    Text             │
+                          │    OrderIndex       │
+                          │ FK SampleQuestionID │
+                          └────────────────────┘
 ```
 
 ---
@@ -352,10 +400,6 @@ Content-Type: application/json
 ```
 204 No Content
 ```
-
-> ⚠️ Note: a non-admin user changing **their own** password should also be required to confirm
-> their current password. If your handler doesn't already enforce this, add a `currentPassword`
-> field to the request and verify it before issuing a new hash.
 </details>
 
 <details>
@@ -389,8 +433,8 @@ Authorization: Bearer <admin-token>
 | `POST` | `/` | User | Upload a document (multipart/form-data, max 20MB) |
 | `GET` | `/mine` | User | Get all documents belonging to the current user |
 | `GET` | `/` | **Admin** | Get all documents in the system |
-| `GET` | `/{id}` | Owner / Admin | Get a document by ID (with analysis if available) |
-| `POST` | `/{id}/analyze` | Owner / Admin | Trigger text extraction + AI summarization |
+| `GET` | `/{id}` | Owner / Admin | Get a document by ID (with full analysis if available) |
+| `POST` | `/{id}/analyze` | Owner / Admin | Trigger text extraction + AI analysis |
 | `DELETE` | `/{id}` | Owner / Admin | Delete a document and its file |
 
 <details>
@@ -437,8 +481,45 @@ file: [binary file data]
     "documentAnalysisId": 7,
     "extractedText": "Chapter 1: Introduction to...",
     "aiSummary": "This chapter introduces the fundamental concepts of...",
-    "aiResponseJson": "{ ... raw Gemini response ... }",
-    "analyzedAt": "2026-06-20T15:02:30Z"
+    "aiResponseJson": "{ ... raw Groq response ... }",
+    "analyzedAt": "2026-06-20T15:02:30Z",
+    "keyConcepts": [
+      {
+        "keyConceptId": 1,
+        "title": "Photosynthesis",
+        "description": "The process by which plants convert sunlight into glucose."
+      },
+      {
+        "keyConceptId": 2,
+        "title": "Chlorophyll",
+        "description": "The green pigment in plants responsible for absorbing light."
+      }
+    ],
+    "sampleQuestions": [
+      {
+        "sampleQuestionId": 1,
+        "question": "What is the primary product of photosynthesis?",
+        "type": "MultipleChoice",
+        "difficulty": "Easy",
+        "correctAnswer": null,
+        "answerIndex": 1,
+        "choices": [
+          { "questionChoiceId": 1, "text": "Oxygen", "orderIndex": 0 },
+          { "questionChoiceId": 2, "text": "Glucose", "orderIndex": 1 },
+          { "questionChoiceId": 3, "text": "Carbon Dioxide", "orderIndex": 2 },
+          { "questionChoiceId": 4, "text": "Water", "orderIndex": 3 }
+        ]
+      },
+      {
+        "sampleQuestionId": 2,
+        "question": "Explain the role of chlorophyll in photosynthesis.",
+        "type": "ShortAnswer",
+        "difficulty": "Medium",
+        "correctAnswer": "Chlorophyll absorbs light energy and uses it to drive the chemical reactions of photosynthesis.",
+        "answerIndex": null,
+        "choices": []
+      }
+    ]
   }
 }
 ```
@@ -478,7 +559,7 @@ All errors return a consistent JSON shape:
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
 - SQL Server (local or Docker)
-- Google Gemini API Key ([Get one free](https://aistudio.google.com/))
+- Groq API Key ([Get one free at console.groq.com](https://console.groq.com/))
 
 ### 1. Clone & Restore
 
@@ -496,7 +577,7 @@ dotnet restore
 cd API
 dotnet user-secrets set "Jwt:Key" "your-super-secret-key-at-least-32-chars"
 dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=.;Database=EduPlayDB;Trusted_Connection=True;"
-dotnet user-secrets set "AI:ApiKey" "your-gemini-api-key"
+dotnet user-secrets set "AI:ApiKey" "your-groq-api-key"
 ```
 
 ### 3. Run Migrations
@@ -542,9 +623,8 @@ This applies to registration **and** to changing a password via `/api/users/{id}
 | `MediatR` | Application | CQRS pipeline |
 | `FluentValidation` | Application | Request validation |
 | `AutoMapper` | Application | Entity ↔ DTO mapping |
-| `IronOcr` | Infrastructure | PDF text extraction (Arabic support) |
+| `itext7` | Infrastructure | PDF text extraction |
 | `DocumentFormat.OpenXml` | Infrastructure | DOCX text extraction |
-| `PdfPig` | Infrastructure | PDF processing |
 | `BCrypt.Net-Next` | Infrastructure | Password hashing |
 | `System.IdentityModel.Tokens.Jwt` | Infrastructure | JWT generation & validation |
 | `Microsoft.EntityFrameworkCore.SqlServer` | Infrastructure | ORM |
@@ -581,23 +661,35 @@ Pending ──► Processing ──► Completed
                       └──► Failed (can be retried via POST /{id}/analyze)
 ```
 
+### Question Types & Difficulty Levels
+
+| Field | Values |
+|-------|--------|
+| `type` | `"ShortAnswer"`, `"MultipleChoice"` |
+| `difficulty` | `"Easy"`, `"Medium"`, `"Hard"` |
+
+For `MultipleChoice` questions: use `answerIndex` (0-based) to identify the correct choice in the `choices` array.
+For `ShortAnswer` questions: use `correctAnswer` as the model answer.
+
 ### Recommended Frontend Flow
 ```
-1. POST /api/auth/register              → create account
-2. POST /api/auth/login                 → get { accessToken, refreshToken }
-3. GET  /api/users/me                   → fetch profile to populate the UI
-4. POST /api/documents                  → upload file (multipart)
-5. POST /api/documents/{id}/analyze     → trigger AI analysis
-6. GET  /api/documents/{id}             → poll until processingStatus === "Completed"
-7. Display analysis.aiSummary           → show the AI summary to the user
-8. PUT  /api/users/{id}                 → let the user edit username/email
-9. POST /api/users/{id}/change-password → let the user change their password
-10. POST /api/auth/refresh              → when accessToken expires (60 min)
-11. POST /api/auth/logout/{id}          → logout
+1.  POST /api/auth/register              → create account
+2.  POST /api/auth/login                 → get { accessToken, refreshToken }
+3.  GET  /api/users/me                   → fetch profile to populate the UI
+4.  POST /api/documents                  → upload file (multipart)
+5.  POST /api/documents/{id}/analyze     → trigger AI analysis
+6.  GET  /api/documents/{id}             → poll until processingStatus === "Completed"
+7.  Display analysis.aiSummary           → show the AI summary to the user
+8.  Display analysis.keyConcepts         → show key concepts list
+9.  Display analysis.sampleQuestions     → show quiz questions with choices
+10. PUT  /api/users/{id}                 → let the user edit username/email
+11. POST /api/users/{id}/change-password → let the user change their password
+12. POST /api/auth/refresh               → when accessToken expires (60 min)
+13. POST /api/auth/logout/{id}           → logout
 ```
 
 ### CORS
-> Not yet configured for production. If you get CORS errors, contact the backend developer to add your frontend origin.
+> CORS is configured for the production frontend at `https://edu-play-three.vercel.app`. If you deploy to a different origin, contact the backend developer to add it.
 
 ---
 
@@ -618,7 +710,7 @@ uploads/<guid>.<ext>
 
 **Omar** — Backend Developer
 
-Clean Architecture · CQRS · .NET 10 · SQL Server · Gemini AI
+Clean Architecture · CQRS · .NET 10 · SQL Server · Groq AI (Llama 3.3 70B)
 
 *Competition Project — Backend by Omar · Frontend by a separate developer*
 
@@ -632,6 +724,6 @@ Clean Architecture · CQRS · .NET 10 · SQL Server · Gemini AI
 [![Swagger](https://img.shields.io/badge/📖_Swagger_UI-Try_it_Live-85EA2D?style=for-the-badge&logo=swagger&logoColor=black)](https://eduplayapi.runasp.net/swagger/index.html)
 [![ERD](https://img.shields.io/badge/🗺️_ERD-View_on_Lucidchart-FF6B35?style=for-the-badge)](https://lucid.app/lucidchart/5af8fe89-a34b-4efc-9c6c-23d00dc13fc1/edit?viewport_loc=613%2C-224%2C2175%2C1212%2C0_0&invitationId=inv_54ab381d-0324-4858-bd94-639a0614e374)
 
-Built with ❤️ by **Omar** using **.NET 10** · **Clean Architecture** · **CQRS** · **Gemini AI**
+Built with ❤️ by **Omar** using **.NET 10** · **Clean Architecture** · **CQRS** · **Groq AI (Llama 3.3 70B)**
 
-</div>
+</div>ر
